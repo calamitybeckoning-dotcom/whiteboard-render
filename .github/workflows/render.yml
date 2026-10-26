@@ -1,0 +1,56 @@
+name: render
+on:
+  workflow_dispatch:
+    inputs:
+      image_url:
+        description: "Image URL to animate (blank = upstream demo source-02.png)"
+        required: false
+        default: ""
+      mode:
+        description: "d (detailed) or e (quick)"
+        default: "e"
+      duration:
+        description: "seconds"
+        default: "8"
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Fetch upstream (pinned)
+        run: |
+          git clone https://github.com/letuandat131/whiteboard-animation-vi.git upstream
+          git -C upstream checkout c689bf7
+      - name: Install (CPU torch)
+        working-directory: upstream
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+          python scripts/download_model.py
+      - name: Render
+        working-directory: upstream
+        env:
+          IMG_URL: ${{ inputs.image_url }}
+          MODE: ${{ inputs.mode }}
+          DUR: ${{ inputs.duration }}
+        run: |
+          if [ -n "$IMG_URL" ]; then curl -fsSL "$IMG_URL" -o input.png; else cp docs/media/source-02.png input.png; fi
+          python - <<'PY'
+          import os, shutil, numpy as np
+          from PIL import Image
+          from handdraw.settings import Settings
+          from handdraw.render import render_video
+          img = np.asarray(Image.open("input.png").convert("RGB"))
+          s = Settings(mode=os.environ["MODE"], duration=int(os.environ["DUR"]), width=1280, height=720, fps=30)
+          path, report = render_video(img, s, output_dir="out")
+          print(report)
+          shutil.copy(path, "result.mp4")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: whiteboard-mp4
+          path: upstream/result.mp4
