@@ -45,7 +45,7 @@ jobs:
           from handdraw.settings import Settings
           from handdraw.render import render_video
           img = np.asarray(Image.open("input.png").convert("RGB"))
-          s = Settings(mode=os.environ["MODE"], duration=int(os.environ["DUR"]), width=1280, height=720, fps=30)
+          s = Settings(mode=os.environ["MODE"], duration=int(os.environ["DUR"]), width=1280, height=720, fps=30, device="cpu", encoder="cpu")
           path, report = render_video(img, s, output_dir="out")
           print(report)
           shutil.copy(path, "result.mp4")
